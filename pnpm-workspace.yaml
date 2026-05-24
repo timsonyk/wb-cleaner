@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# esbuild — нужен для vitest/drizzle-kit (быстрый transform TS).
+# sharp — image-optimization pipeline у Next.js. Обе либы безопасны.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

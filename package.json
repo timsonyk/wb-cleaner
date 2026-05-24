@@ -1,0 +1,20 @@
+{
+  "name": "wb-cleaner",
+  "private": true,
+  "version": "0.0.1",
+  "description": "SELYUTIN WB Cleaner — SaaS for Wildberries sellers",
+  "scripts": {
+    "dev": "pnpm --filter @wb-cleaner/web dev",
+    "build": "pnpm --filter @wb-cleaner/web build",
+    "test": "pnpm --filter @wb-cleaner/web test",
+    "db:generate": "pnpm --filter @wb-cleaner/web db:generate",
+    "db:migrate": "pnpm --filter @wb-cleaner/web db:migrate",
+    "db:push": "pnpm --filter @wb-cleaner/web db:push",
+    "db:studio": "pnpm --filter @wb-cleaner/web db:studio",
+    "db:seed": "pnpm --filter @wb-cleaner/web db:seed"
+  },
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=20"
+  }
+}

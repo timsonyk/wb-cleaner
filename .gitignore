@@ -1,0 +1,38 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# next
+.next/
+out/
+next-env.d.ts
+
+# build
+dist/
+build/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs / debug
+*.log
+.DS_Store
+
+# editor
+.vscode/
+.idea/
+
+# python (worker)
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+
+# worker debug dumps
+wb_optimizer_report_*.json
+
+# drizzle local snapshots (миграции коммитим, journal — да)
+# (по умолчанию drizzle складывает в apps/web/drizzle/ — оставляем под контролем)
