@@ -3,14 +3,6 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { wbAccounts } from "@/lib/db/schema";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/require-user";
 import { DeleteAccountButton } from "./delete-button";
 import { RunNowButton } from "./run-now-button";
@@ -39,37 +31,36 @@ export default async function AccountsPage({ searchParams }: PageProps) {
     .orderBy(desc(wbAccounts.createdAt));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-8">
+      <header className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">WB-аккаунты</h1>
-          <p className="text-sm text-muted-foreground">
-            Подключённые продавцы и режим работы.
+          <h1 className="text-2xl font-semibold tracking-tight">WB-аккаунты</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Подключённые продавцы и их режим работы.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/accounts/new">Добавить аккаунт</Link>
-        </Button>
-      </div>
+        {accounts.length > 0 ? (
+          <Button asChild>
+            <Link href="/accounts/new">+ Добавить</Link>
+          </Button>
+        ) : null}
+      </header>
 
       {accounts.length === 0 ? (
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle>Нет подключённых аккаунтов</CardTitle>
-            <CardDescription>
-              Добавь первый — система запустится в preview-режиме на 7 дней,
-              ничего не будет реально минусоваться, только покажет что
-              сделала бы.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button asChild>
-              <Link href="/accounts/new">Добавить аккаунт</Link>
+        <div className="rounded-lg border border-dashed py-16 text-center">
+          <h2 className="text-lg font-medium">Пока ни одного аккаунта</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Подключите первый — программа 7 дней понаблюдает в preview-режиме,
+            ничего не минусуя в WB, и покажет что бы она сделала.
+          </p>
+          <div className="mt-6">
+            <Button asChild size="lg">
+              <Link href="/accounts/new">Подключить аккаунт</Link>
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <ul className="flex flex-col gap-3">
           {accounts.map((a) => {
             const isNew = a.id === newId;
             const isPreview = a.mode === "preview";
@@ -84,61 +75,77 @@ export default async function AccountsPage({ searchParams }: PageProps) {
                   )
                 : null;
             return (
-              <Card
+              <li
                 key={a.id}
-                className={isNew ? "ring-2 ring-ring" : undefined}
+                className={
+                  "rounded-lg border bg-card transition " +
+                  (isNew ? "ring-2 ring-foreground/40" : "")
+                }
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <CardTitle className="truncate">{a.name}</CardTitle>
-                      <CardDescription>
-                        Подключён {a.createdAt.toLocaleDateString("ru-RU")}
-                      </CardDescription>
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="truncate text-lg font-medium">
+                        {a.name}
+                      </h3>
+                      <span className="rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {isPreview ? "preview" : "auto"}
+                      </span>
                     </div>
-                    <span
-                      className={
-                        "rounded-md px-2 py-0.5 text-xs " +
-                        (isPreview
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-emerald-100 text-emerald-800")
-                      }
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        Подключён {a.createdAt.toLocaleDateString("ru-RU")}
+                      </span>
+                      {isPreview && previewLeftDays !== null ? (
+                        <span>
+                          Preview ещё {previewLeftDays}{" "}
+                          {previewLeftDays === 1 ? "день" : "дн."}
+                        </span>
+                      ) : null}
+                      {a.validationError ? (
+                        <span className="text-foreground">
+                          Ошибка валидации: {a.validationError}
+                        </span>
+                      ) : a.lastValidatedAt ? (
+                        <span>
+                          Токен проверен{" "}
+                          {a.lastValidatedAt.toLocaleDateString("ru-RU")}
+                        </span>
+                      ) : (
+                        <span>Токен не проверялся</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <RunNowButton accountId={a.id} />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t px-5 py-2.5 text-xs">
+                  <div className="flex items-center gap-4">
+                    <Link
+                      href={`/accounts/${a.id}/rules`}
+                      className="text-muted-foreground transition hover:text-foreground"
                     >
-                      {isPreview
-                        ? `preview${previewLeftDays !== null ? ` · ${previewLeftDays}д` : ""}`
-                        : "auto"}
-                    </span>
+                      Правила чистки
+                    </Link>
+                    <Link
+                      href={{
+                        pathname: "/decisions",
+                        query: { account: a.id },
+                      }}
+                      className="text-muted-foreground transition hover:text-foreground"
+                    >
+                      Журнал решений
+                    </Link>
                   </div>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  {a.validationError ? (
-                    <p className="text-destructive">
-                      Ошибка валидации: {a.validationError}
-                    </p>
-                  ) : a.lastValidatedAt ? (
-                    <p className="text-muted-foreground">
-                      Токен проверен{" "}
-                      {a.lastValidatedAt.toLocaleDateString("ru-RU")}
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground">Токен не проверялся</p>
-                  )}
-                </CardContent>
-                <CardFooter className="flex-col items-stretch gap-2">
-                  <div className="flex items-center gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/accounts/${a.id}/rules`}>
-                        Правила чистки
-                      </Link>
-                    </Button>
-                    <DeleteAccountButton id={a.id} name={a.name} />
-                  </div>
-                  <RunNowButton accountId={a.id} />
-                </CardFooter>
-              </Card>
+                  <DeleteAccountButton id={a.id} name={a.name} />
+                </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </div>
   );

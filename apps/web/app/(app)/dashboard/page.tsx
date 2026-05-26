@@ -1,15 +1,7 @@
 import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { wbAccounts, runs } from "@/lib/db/schema";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/require-user";
 
@@ -44,7 +36,6 @@ function summaryInt(s: Record<string, unknown> | null, key: string): number {
 export default async function DashboardPage() {
   const { userId, email } = await requireUser();
 
-  // По одному последнему run на каждый аккаунт юзера через LATERAL JOIN.
   const rows = (await db.execute<LastRunRow>(sql`
     SELECT
       a.id                AS "accountId",
@@ -67,95 +58,130 @@ export default async function DashboardPage() {
     ORDER BY a.created_at DESC
   `)) as unknown as LastRunRow[];
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Дашборд</h1>
-        <p className="text-sm text-muted-foreground">
-          Последние прогоны воркера. Аккаунт: {email}.
-        </p>
-      </div>
-
-      {rows.length === 0 ? (
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle>Пока нет WB-аккаунтов</CardTitle>
-            <CardDescription>
-              Подключи первый — и здесь появится статистика прогонов.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button asChild>
+  if (rows.length === 0) {
+    return (
+      <div className="flex flex-col gap-8">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">Дашборд</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{email}</p>
+        </header>
+        <div className="rounded-lg border border-dashed py-16 text-center">
+          <h2 className="text-lg font-medium">Здесь будут прогоны воркера</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Подключите WB-аккаунт, и на этой странице появится статистика
+            последних прогонов и сколько фраз программа выключила.
+          </p>
+          <div className="mt-6">
+            <Button asChild size="lg">
               <Link href="/accounts/new">Подключить аккаунт</Link>
             </Button>
-          </CardFooter>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {rows.map((r) => {
-            const hasRun = !!r.runId;
-            const isPreview = r.mode === "preview";
-            return (
-              <Card key={r.accountId}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-3">
-                    <CardTitle className="truncate">{r.accountName}</CardTitle>
-                    <span
-                      className={
-                        "rounded-md px-2 py-0.5 text-xs " +
-                        (isPreview
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-emerald-100 text-emerald-800")
-                      }
-                    >
-                      {r.mode}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <header className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Дашборд</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Последние прогоны по каждому аккаунту. {email}.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/accounts">Все аккаунты →</Link>
+        </Button>
+      </header>
+
+      <ul className="flex flex-col gap-3">
+        {rows.map((r) => {
+          const hasRun = !!r.runId;
+          const isPreview = r.mode === "preview";
+          return (
+            <li key={r.accountId} className="rounded-lg border bg-card">
+              <div className="flex items-start justify-between gap-4 border-b p-5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <h3 className="truncate text-lg font-medium">
+                      {r.accountName}
+                    </h3>
+                    <span className="rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {isPreview ? "preview" : "auto"}
                     </span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm">
-                  {!hasRun ? (
-                    <p className="text-muted-foreground">
-                      Прогонов ещё не было. Воркер запустится по cron, либо
-                      командой <code className="rounded bg-muted px-1">python -m apps.worker.cli</code>.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Последний:</span>
-                        <span>{formatRunTime(r.startedAt)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Статус:</span>
-                        <span>{r.status}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Решений (exclude):</span>
-                        <span>{summaryInt(r.summary, "decisionsExclude")}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Применено в WB:</span>
-                        <span>{summaryInt(r.summary, "applied")}</span>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={{
-                        pathname: "/decisions",
-                        query: { account: r.accountId },
-                      }}
-                    >
-                      Все решения
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Последний прогон: {formatRunTime(r.startedAt)}
+                    {r.status ? ` · ${r.status}` : ""}
+                  </p>
+                </div>
+                <Link
+                  href={{
+                    pathname: "/decisions",
+                    query: { account: r.accountId },
+                  }}
+                  className="text-xs text-muted-foreground transition hover:text-foreground"
+                >
+                  Все решения →
+                </Link>
+              </div>
+
+              {!hasRun ? (
+                <p className="px-5 py-4 text-sm text-muted-foreground">
+                  Прогонов ещё не было. Нажмите «Запустить сейчас» на странице{" "}
+                  <Link
+                    href="/accounts"
+                    className="underline underline-offset-2"
+                  >
+                    аккаунтов
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <dl className="grid grid-cols-2 divide-x sm:grid-cols-4">
+                  <Stat label="Кластеров" value={summaryInt(r.summary, "clustersAnalyzed")} />
+                  <Stat label="Выключить" value={summaryInt(r.summary, "decisionsExclude")} />
+                  <Stat label="Оставить" value={summaryInt(r.summary, "decisionsKeep")} />
+                  <Stat
+                    label={isPreview ? "Было бы применено" : "Применено"}
+                    value={
+                      isPreview
+                        ? summaryInt(r.summary, "decisionsExclude")
+                        : summaryInt(r.summary, "applied")
+                    }
+                    muted={isPreview}
+                  />
+                </dl>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: number;
+  muted?: boolean;
+}) {
+  return (
+    <div className="px-5 py-4">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd
+        className={
+          "mt-1 text-2xl font-medium tabular-nums " +
+          (muted ? "text-muted-foreground" : "")
+        }
+      >
+        {value}
+      </dd>
     </div>
   );
 }

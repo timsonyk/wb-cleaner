@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 
@@ -22,21 +23,20 @@ export async function startLogin(
   }
 
   try {
-    // redirect: true (default) — Auth.js сам перекинет на /verify-request.
-    // Если он бросает NEXT_REDIRECT — это успех (стандартное поведение).
-    await signIn("resend", { email, redirectTo: callbackUrl });
-    return { ok: true };
+    // redirect: false — signIn только триггерит отправку кода и пишет токен
+    // в verification_tokens, но не редиректит сам. Дальше редиректим вручную,
+    // прокидывая email и callbackUrl в /verify-request, чтобы форма ввода
+    // кода знала с какой почтой связан код.
+    await signIn("resend", { email, redirect: false });
   } catch (err) {
-    // NEXT_REDIRECT — нормальный exit-path при успехе, его пропускаем дальше.
-    if (
-      err instanceof Error &&
-      err.message.includes("NEXT_REDIRECT")
-    ) {
-      throw err;
-    }
     if (err instanceof AuthError) {
-      return { ok: false, error: "Не удалось отправить письмо. Попробуй ещё раз." };
+      return { ok: false, error: "Не удалось отправить код. Попробуйте ещё раз." };
     }
     throw err;
   }
+
+  redirect(
+    `/verify-request?email=${encodeURIComponent(email)}` +
+      `&callbackUrl=${encodeURIComponent(callbackUrl)}`,
+  );
 }

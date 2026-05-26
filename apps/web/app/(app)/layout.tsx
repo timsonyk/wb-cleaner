@@ -5,6 +5,7 @@ import { LogoutButton } from "./logout-button";
 
 const NAV = [
   { href: "/dashboard" as const, label: "Дашборд" },
+  { href: "/accounts" as const, label: "Аккаунты" },
   { href: "/decisions" as const, label: "Решения" },
   { href: "/settings" as const, label: "Настройки" },
 ];
@@ -20,11 +21,11 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b px-6 py-3">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm font-semibold">
+        <div className="flex items-center gap-8">
+          <Link href="/dashboard" className="text-sm font-semibold tracking-tight">
             WB Cleaner
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex items-center gap-5 text-sm">
             {NAV.map((item) => (
               <Link
                 key={item.href}
@@ -36,12 +37,14 @@ export default async function AppLayout({
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="hidden sm:inline">{session.user.email}</span>
           <LogoutButton />
         </div>
       </header>
-      <main className="flex-1 p-6">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
+        {children}
+      </main>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
@@ -9,6 +10,13 @@ import {
   verificationTokens,
 } from "@/lib/db/schema";
 import authConfig from "./auth.config";
+
+/** 6-значный код для входа. crypto.randomInt — CSPRNG, без Math.random.
+ *  Энтропия 1:1_000_000 — для MVP допустимо при 15-минутной TTL и одноразовом
+ *  использовании. Перед prod добавить лимит попыток на (email, IP). */
+function generateLoginCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
 
 // Lazy env guards. Top-level throw ронял `next build` (page data collection
 // в worker'ах не видит env, который мы загружаем в next.config). Падать
@@ -39,9 +47,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       apiKey: process.env.AUTH_RESEND_KEY,
       from: process.env.EMAIL_FROM,
       maxAge: MAGIC_LINK_MAX_AGE_SECONDS,
-      async sendVerificationRequest({ identifier: to, url }) {
+      // Auth.js использует этот токен и как значение в таблице
+      // verification_tokens, и как ?token=... в magic-link. Подставляем
+      // 6-значный код — он же будет работать как code-вход через форму.
+      generateVerificationToken: generateLoginCode,
+      async sendVerificationRequest({ identifier: to, url, token }) {
         // DEV-fallback: если Resend ещё не настроен (placeholder ключа) или
-        // явно сказали NEXT_AUTH_DEV_PRINT_LINK=1 — печатаем ссылку в лог
+        // явно сказали NEXT_AUTH_DEV_PRINT_LINK=1 — печатаем код в лог
         // вместо отправки письма. Удобно гонять локально без аккаунта Resend.
         const rawKey = process.env.AUTH_RESEND_KEY ?? "";
         const isPlaceholder =
@@ -50,9 +62,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           process.env.NEXT_AUTH_DEV_PRINT_LINK === "1";
         if (isPlaceholder && process.env.NODE_ENV !== "production") {
           console.log("\n" + "═".repeat(72));
-          console.log(`📧 [DEV] magic link для ${to}:`);
-          console.log(`   ${url}`);
-          console.log(`   (живёт 15 минут, открой её в браузере)`);
+          console.log(`📧 [DEV] код для ${to}:  ${token}`);
+          console.log(`   (или magic-link: ${url})`);
+          console.log(`   живёт 15 минут`);
           console.log("═".repeat(72) + "\n");
           return;
         }
@@ -66,11 +78,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           "e.g. 'WB Cleaner <onboarding@resend.dev>'",
         );
 
-        const subject = "Войти в WB Cleaner — нажмите ссылку";
-        const text = `Откройте ссылку, чтобы войти в WB Cleaner:\n${url}\n\nСсылка живёт 15 минут.`;
-        const html = `<p>Откройте ссылку, чтобы войти в WB Cleaner:</p>
-<p><a href="${url}">${url}</a></p>
-<p style="color:#888;font-size:12px">Ссылка живёт 15 минут.</p>`;
+        const subject = `Код для входа в WB Cleaner: ${token}`;
+        const text = `Ваш код для входа: ${token}\n\nВведите его на странице входа. Действует 15 минут.\n\nИли откройте ссылку: ${url}`;
+        const html = `<p>Ваш код для входа:</p>
+<p style="font-family:monospace;font-size:28px;letter-spacing:4px;font-weight:600">${token}</p>
+<p>Введите его на странице входа. Код действует 15 минут.</p>
+<p style="color:#888;font-size:12px">Или откройте <a href="${url}">эту ссылку</a> — войдёте без ввода кода.</p>`;
 
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",

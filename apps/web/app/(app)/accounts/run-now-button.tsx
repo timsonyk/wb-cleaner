@@ -17,9 +17,11 @@ export function RunNowButton({ accountId }: { accountId: string }) {
       {state.message ? (
         <p
           className={
-            "text-xs " + (state.ok ? "text-emerald-700" : "text-destructive")
+            "text-xs " +
+            (state.ok ? "text-muted-foreground" : "font-medium text-foreground")
           }
         >
+          {state.ok ? "✓ " : "× "}
           {state.message}
         </p>
       ) : null}
